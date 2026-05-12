@@ -1,0 +1,277 @@
+{
+    "version": "1.0.1",
+    "system": "ASTRA_LIFE",
+    "authority_level": "binding",
+    "description": "Canonical module authority and responsibility contracts aligned with PIPELINE_SPEC v1.0",
+    "global_principles": {
+        "single_authority_per_module": true,
+        "no_authority_expansion": true,
+        "no_cross_module_compensation": true,
+        "stateless_by_default": true,
+        "hard_fail_on_violation": true,
+        "contracts_override_prompts": true
+    },
+    "modules": {
+        "orchestrator": {
+            "role": "execution_authority",
+            "allowed_stages": [
+                "L0_ENTRY"
+            ],
+            "input_schema": null,
+            "output_schema": null,
+            "responsibilities": [
+                "initialize_execution_context",
+                "assign_trace_id",
+                "assign_correlation_id",
+                "invoke_pipeline_in_order",
+                "enforce_pipeline_invariants",
+                "halt_pipeline_on_failure"
+            ],
+            "forbidden": [
+                "semantic_reasoning",
+                "payload_modification",
+                "business_decision",
+                "policy_decision",
+                "memory_access",
+                "tool_invocation"
+            ],
+            "state": "stateless"
+        },
+        "semantic_engine": {
+            "role": "meaning_extraction",
+            "allowed_stages": [
+                "L1_SEMANTIC"
+            ],
+            "input_schema": "RawInput",
+            "output_schema": "UnifiedItem",
+            "responsibilities": [
+                "normalize_input",
+                "extract_semantics",
+                "produce_schema_compliant_unified_item"
+            ],
+            "forbidden": [
+                "memory_access",
+                "tool_invocation",
+                "planning",
+                "policy_evaluation",
+                "governance_evaluation",
+                "behavioral_inference"
+            ],
+            "failure_mode": {
+                "error": "semantic_error",
+                "pipeline_action": "halt"
+            },
+            "state": "stateless"
+        },
+        "enforcer": {
+            "role": "governance_gate",
+            "allowed_stages": [
+                "L2_ENFORCEMENT"
+            ],
+            "input_schema": "UnifiedItem",
+            "output_schema": "UnifiedItem",
+            "responsibilities": [
+                "schema_validation",
+                "contract_validation",
+                "governance_validation"
+            ],
+            "rules": {
+                "invalid_payload": "reject",
+                "modification_allowed": false,
+                "inference_allowed": false
+            },
+            "forbidden": [
+                "payload_modification",
+                "payload_repair",
+                "field_inference",
+                "business_logic"
+            ],
+            "state": "stateless"
+        },
+        "router": {
+            "role": "routing_selector",
+            "allowed_stages": [
+                "L3_ROUTING"
+            ],
+            "input_schema": "UnifiedItem",
+            "output_schema": "RoutingDecision",
+            "responsibilities": [
+                "select_domain_pack",
+                "select_agent_pipeline"
+            ],
+            "forbidden": [
+                "semantic_reasoning",
+                "memory_access",
+                "payload_modification",
+                "policy_application",
+                "tool_execution"
+            ],
+            "state": "stateless"
+        },
+        "decision_authority": {
+            "role": "permission_authority",
+            "allowed_stages": [
+                "L4_DECISION_AUTHORITY"
+            ],
+            "input_schema": "RoutingDecision",
+            "output_schema": "AuthorityDecision",
+            "single_question": "is_execution_permitted",
+            "outputs": [
+                "allow",
+                "require_human_approval",
+                "reject",
+                "escalate"
+            ],
+            "forbidden": [
+                "business_logic_evaluation",
+                "policy_application",
+                "tool_invocation",
+                "intent_modification"
+            ],
+            "state": "stateless"
+        },
+        "policy_engine": {
+            "role": "policy_and_compliance_authority",
+            "allowed_stages": [
+                "L5_POLICY"
+            ],
+            "input_schema": "AuthorityDecision",
+            "output_schema": "PolicyDecision",
+            "responsibilities": [
+                "evaluate_policies",
+                "check_compliance",
+                "resolve_policy_conflicts"
+            ],
+            "properties": {
+                "versioned": true,
+                "human_editable": true,
+                "testable": true,
+                "hot_reloadable": true
+            },
+            "forbidden": [
+                "tool_invocation",
+                "memory_write",
+                "intent_modification",
+                "execution_logic"
+            ],
+            "state": "stateless"
+        },
+        "agent": {
+            "role": "domain_executor",
+            "allowed_stages": [
+                "L6_AGENT"
+            ],
+            "input_schema": "AgentInput",
+            "output_schema": "AgentResult",
+            "preconditions": [
+                "decision_authority_allow",
+                "policy_engine_pass"
+            ],
+            "allowed": [
+                "memory_access",
+                "approved_tool_invocation",
+                "workflow_execution_within_domain"
+            ],
+            "forbidden": [
+                "policy_bypass",
+                "scope_expansion",
+                "tool_creation",
+                "schema_modification",
+                "decision_override"
+            ],
+            "state": "stateful_contract_bound"
+        },
+        "memory_layer": {
+            "role": "state_persistence",
+            "allowed_stages": [
+                "L6_AGENT"
+            ],
+            "access_rules": {
+                "read_write": "agent_only"
+            },
+            "forbidden": [
+                "action_triggering",
+                "intent_modification",
+                "tool_invocation"
+            ],
+            "types": [
+                "structured_memory",
+                "semantic_memory",
+                "session_memory"
+            ]
+        },
+        "tool_layer": {
+            "role": "capability_execution",
+            "allowed_stages": [
+                "L6_AGENT"
+            ],
+            "requirements": [
+                "input_schema_enforced",
+                "output_schema_enforced",
+                "permission_scope_enforced",
+                "audit_logging"
+            ],
+            "forbidden": [
+                "direct_non_agent_invocation",
+                "autonomous_decision"
+            ]
+        },
+        "recovery_layer": {
+            "role": "failure_handler",
+            "allowed_stages": [
+                "L7_RECOVERY"
+            ],
+            "trigger_conditions": [
+                "runtime_error",
+                "timeout",
+                "tool_failure"
+            ],
+            "allowed": [
+                "retry",
+                "fallback",
+                "dead_letter_queue"
+            ],
+            "forbidden": [
+                "semantic_intent_change",
+                "approved_decision_override"
+            ]
+        },
+        "response_generator": {
+            "role": "output_formatter",
+            "allowed_stages": [
+                "L8_RESPONSE"
+            ],
+            "input_schema": "AgentResult",
+            "output_schema": "Response",
+            "responsibilities": [
+                "convert_structured_result_to_human_response"
+            ],
+            "forbidden": [
+                "fabrication",
+                "unsupported_inference",
+                "business_result_modification"
+            ],
+            "state": "stateless"
+        },
+        "observability_audit": {
+            "role": "system_truth_recorder",
+            "allowed_stages": [
+                "L9_OBSERVABILITY"
+            ],
+            "logging_requirements": [
+                "input",
+                "output",
+                "timestamp",
+                "trace_id",
+                "decision_state"
+            ],
+            "forbidden": [
+                "execution_flow_interference"
+            ]
+        }
+    },
+    "violation_policy": {
+        "authority_violation": "critical_bug",
+        "system_action": "halt_pipeline"
+    }
+}

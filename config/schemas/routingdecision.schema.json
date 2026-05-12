@@ -1,0 +1,25 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "RoutingDecision",
+    "type": "object",
+    "required": [
+        "domain",
+        "agent",
+        "pipeline"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "domain": {
+            "type": "string",
+            "description": "Selected domain pack"
+        },
+        "agent": {
+            "type": "string",
+            "description": "Agent identifier"
+        },
+        "pipeline": {
+            "type": "string",
+            "description": "Execution pipeline id"
+        }
+    }
+}

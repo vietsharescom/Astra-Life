@@ -1,0 +1,27 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "AgentResult",
+    "type": "object",
+    "required": [
+        "status",
+        "result"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": [
+                "success",
+                "failure"
+            ]
+        },
+        "result": {
+            "type": "object",
+            "description": "Execution result payload",
+            "additionalProperties": true
+        },
+        "error": {
+            "type": "string"
+        }
+    }
+}

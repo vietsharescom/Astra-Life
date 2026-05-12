@@ -1,0 +1,123 @@
+{
+    "system": {
+        "name": "ASTRA_LIFE",
+        "version": "1.0",
+        "status": "frozen",
+        "document_source": "ASTRA_MASTER_CONTEXT.md",
+        "role": "architectural_constitution",
+        "llm_injected": false
+    },
+    "identity": {
+        "system_type": "ai_orchestration_operating_system",
+        "runtime_mode": "contract_governed",
+        "prompt_authority": false,
+        "code_authority": true
+    },
+    "governance_principles": {
+        "governance_first": true,
+        "schema_is_authority": true,
+        "contract_is_boundary": true,
+        "policy_is_permission": true,
+        "prompt_is_interface_only": true,
+        "observability_is_mandatory": true
+    },
+    "core_prohibitions": {
+        "free_form_chatbot": true,
+        "autonomous_agent": true,
+        "psychological_inference": true,
+        "uncontrolled_personalization": true,
+        "prompt_defined_logic": true
+    },
+    "layer_model": {
+        "layer_0_input": {
+            "name": "Input Layer",
+            "mutable": false,
+            "description": "Raw user input, immutable source"
+        },
+        "layer_1_system": {
+            "name": "System Constitution Layer",
+            "files": [
+                "ASTRA_MASTER_CONTEXT.md",
+                "PIPELINE_SPEC.md",
+                "MODULE_CONTRACTS.md",
+                "SCHEMA_REFERENCE.md"
+            ],
+            "authority": "absolute",
+            "mutable": false
+        },
+        "layer_2_prompt_adapter": {
+            "name": "Prompt Adapter Layer",
+            "purpose": "LLM execution adapter",
+            "contains_logic": false,
+            "mutable": true
+        },
+        "layer_3_runtime": {
+            "name": "Runtime Execution Layer",
+            "authority": "code_only",
+            "mutable": true
+        },
+        "layer_4_memory": {
+            "name": "Memory Layer",
+            "stateful": true,
+            "contract_controlled": true
+        }
+    },
+    "directory_constitution": {
+        "locked": true,
+        "rename_allowed": false,
+        "canonical_roots": {
+            "config": "System authority & JSON configs",
+            "schemas": "All JSON schemas",
+            "preprocess": "Pre-LLM compute pipeline",
+            "llm": "LLM runtime adapters",
+            "artifacts": "Immutable outputs",
+            "scripts": "Governance & ops",
+            "runtime": "Execution code"
+        }
+    },
+    "execution_authority": {
+        "orchestrator": {
+            "role": "single_execution_authority",
+            "may_interpret_semantics": false,
+            "may_execute_business_logic": false,
+            "may_generate_responses": false
+        },
+        "llm": {
+            "trusted": false,
+            "output_requires_validation": true
+        },
+        "human_override": {
+            "required_for": [
+                "financial_actions",
+                "legal_actions",
+                "policy_conflicts",
+                "irreversible_operations"
+            ]
+        }
+    },
+    "determinism_policy": {
+        "semantic_determinism_required": true,
+        "routing_determinism_required": true,
+        "llm_variance_allowed": true,
+        "final_output_must_be_compliant": true
+    },
+    "versioning_rules": {
+        "silent_change_allowed": false,
+        "version_bump_required": true,
+        "backward_compatibility": "explicit_only",
+        "migration_required": true
+    },
+    "compliance": {
+        "audit_required": true,
+        "replay_required": true,
+        "trace_id_required": true,
+        "correlation_id_required": true
+    },
+    "invariants": [
+        "prompts_are_interfaces_not_authority",
+        "schemas_define_structure",
+        "policies_define_permission",
+        "code_enforces_behavior",
+        "observability_verifies_reality"
+    ]
+}

@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ToolCall",
+    "type": "object",
+    "required": [
+        "tool_name",
+        "input"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "tool_name": {
+            "type": "string"
+        },
+        "input": {
+            "type": "object",
+            "additionalProperties": true
+        }
+    }
+}

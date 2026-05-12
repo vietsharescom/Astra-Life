@@ -1,0 +1,33 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "AgentInput",
+    "type": "object",
+    "required": [
+        "context",
+        "task"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "context": {
+            "type": "object",
+            "required": [
+                "domain",
+                "trace_id"
+            ],
+            "properties": {
+                "domain": {
+                    "type": "string"
+                },
+                "trace_id": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false
+        },
+        "task": {
+            "type": "object",
+            "description": "Authorized task payload",
+            "additionalProperties": true
+        }
+    }
+}

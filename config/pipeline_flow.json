@@ -1,0 +1,181 @@
+{
+    "pipeline_version": "astra_life_v1.0",
+    "status": "frozen",
+    "authority": "PIPELINE_SPEC.md",
+    "description": "Canonical execution pipeline for Astra Life v1.0",
+    "invariants": {
+        "linear_execution": true,
+        "no_implicit_loops": true,
+        "no_direct_module_calls": true,
+        "orchestrator_is_single_entry": true,
+        "all_steps_mandatory": true
+    },
+    "entrypoint": {
+        "name": "user_input",
+        "type": "raw",
+        "allowed_sources": [
+            "text",
+            "voice_transcript"
+        ]
+    },
+    "stages": [
+        {
+            "order": 1,
+            "id": "orchestrator",
+            "role": "entry_authority",
+            "stateless": true,
+            "responsibilities": [
+                "initialize_execution_context",
+                "assign_trace_id",
+                "assign_correlation_id",
+                "invoke_pipeline_in_order",
+                "enforce_pipeline_invariants"
+            ],
+            "forbidden": [
+                "semantic_interpretation",
+                "payload_modification",
+                "business_decision"
+            ]
+        },
+        {
+            "order": 2,
+            "id": "semantic_engine",
+            "input": "raw_user_input",
+            "output": "unified_item_json",
+            "stateless": true,
+            "on_failure": "semantic_error_stop",
+            "forbidden": [
+                "memory_access",
+                "tool_usage",
+                "business_logic"
+            ]
+        },
+        {
+            "order": 3,
+            "id": "enforcer",
+            "input": "unified_item_json",
+            "output": "validated_payload",
+            "stateless": true,
+            "rules": {
+                "invalid_schema": "reject",
+                "no_modification": true,
+                "no_inference": true
+            }
+        },
+        {
+            "order": 4,
+            "id": "router",
+            "input": "validated_payload",
+            "output": {
+                "domain_pack": "string",
+                "agent_pipeline": "string"
+            },
+            "stateless": true,
+            "forbidden": [
+                "semantic_reasoning",
+                "memory_access",
+                "payload_modification"
+            ]
+        },
+        {
+            "order": 5,
+            "id": "decision_authority",
+            "purpose": "permission_evaluation",
+            "output": [
+                "allow",
+                "require_human_approval",
+                "reject",
+                "escalate"
+            ],
+            "excludes": [
+                "business_logic",
+                "policy_evaluation"
+            ]
+        },
+        {
+            "order": 6,
+            "id": "policy_engine",
+            "independent": true,
+            "input": "approved_action",
+            "output": "policy_decision",
+            "forbidden": [
+                "tool_execution",
+                "memory_write",
+                "intent_modification"
+            ]
+        },
+        {
+            "order": 7,
+            "id": "agent",
+            "type": "domain_executor",
+            "execution_preconditions": [
+                "decision_authority=allow",
+                "policy_engine=pass"
+            ],
+            "allowed": [
+                "memory_access",
+                "tool_invocation",
+                "workflow_execution"
+            ],
+            "forbidden": [
+                "policy_bypass",
+                "scope_expansion",
+                "schema_modification"
+            ]
+        },
+        {
+            "order": 8,
+            "id": "memory_and_tools",
+            "access_rule": "agent_only",
+            "audit_required": true
+        },
+        {
+            "order": 9,
+            "id": "recovery_layer",
+            "conditional": true,
+            "triggers": [
+                "runtime_error",
+                "timeout",
+                "tool_failure"
+            ],
+            "forbidden": [
+                "semantic_change",
+                "decision_override"
+            ]
+        },
+        {
+            "order": 10,
+            "id": "response_generator",
+            "input": "structured_execution_result",
+            "output": "user_response",
+            "forbidden": [
+                "fabrication",
+                "unsupported_inference"
+            ]
+        },
+        {
+            "order": 11,
+            "id": "observability_audit",
+            "always_on": true,
+            "logs": [
+                "input",
+                "output",
+                "timestamp",
+                "trace_id",
+                "decision_state"
+            ]
+        }
+    ],
+    "stop_conditions": [
+        "schema_invalid",
+        "governance_reject",
+        "policy_conflict",
+        "human_approval_required"
+    ],
+    "change_control": {
+        "versioned": true,
+        "changelog_required": true,
+        "tests_required": true,
+        "replay_verification_required": true
+    }
+}
