@@ -3,29 +3,25 @@ from core.pipeline_guard import PipelineGuard
 
 
 # =========================
-# ASTRA v1.2 — GRAPH DECISION AUTHORITY
+# ASTRA v1.2 — GRAPH DECISION AUTHORITY (GUARD-COMPATIBLE)
 # =========================
 
 class GraphResolver:
     """
-    ASTRA v1.2 — SINGLE SOURCE OF TRUTH FOR ROUTING
+    SINGLE SOURCE OF TRUTH FOR ROUTING
 
-    ROLE:
-    - Decide next_stage
-    - Interpret graph_registry.json via PipelineGuard
-    - Resolve conditional routing (future AI layer hook)
-
-    DOES NOT:
-    - execute logic
-    - mutate state
-    - validate contracts (Guard handles this)
+    RULES:
+    - Routing strictly follows PipelineGuard graph
+    - No state mutation
+    - No execution
+    - No payload interpretation
     """
 
     def __init__(self, guard: PipelineGuard):
         self.guard = guard
 
     # =========================
-    # MAIN RESOLUTION LOGIC
+    # RESOLVE NEXT STAGE
     # =========================
 
     def resolve_next_stage(
@@ -35,35 +31,65 @@ class GraphResolver:
         context: Optional[Dict[str, Any]] = None
     ) -> Optional[str]:
 
-        """
-        RULE:
-        - default = linear graph
-        - future = conditional routing via execution_result
-        """
-
-        context = context or {}
         execution_result = execution_result or {}
+        context = context or {}
 
-        # =========================
-        # BASE GRAPH NEXT
-        # =========================
-        next_stage = self.guard.next(current_stage)
+        graph = self.guard.snapshot()
 
-        if next_stage is None:
+        # -------------------------
+        # 1. VALIDATE CURRENT STAGE
+        # -------------------------
+        if current_stage not in graph:
+            raise ValueError(
+                f"[GraphResolver] Unknown current_stage: {current_stage}"
+            )
+
+        allowed_next = graph[current_stage]
+
+        # -------------------------
+        # 2. END OF GRAPH
+        # -------------------------
+        if not allowed_next:
             return None
 
-        # =========================
-        # FUTURE HOOK (SEMANTIC ROUTING)
-        # =========================
-        # Example extension:
-        # if execution_result.get("route") == "recovery":
-        #     return "L8_RECOVERY"
+        # default deterministic path
+        next_stage = allowed_next[0]
 
+        # -------------------------
+        # 3. CONTROLLED OVERRIDES
+        # -------------------------
+
+        # force recovery only if graph allows
         if execution_result.get("force_recovery"):
-            return "L8_RECOVERY"
+            if "L8_RECOVERY" in allowed_next:
+                return "L8_RECOVERY"
 
+        # allow exactly ONE skip, still graph-bounded
         if execution_result.get("skip"):
-            # skip one step in graph
-            return self.guard.next(next_stage)
+            next_candidates = graph.get(next_stage, [])
+            if next_candidates:
+                return next_candidates[0]
+
+        # -------------------------
+        # 4. FINAL GRAPH INVARIANT
+        # -------------------------
+        if next_stage not in allowed_next:
+            raise ValueError(
+                f"[GraphResolver] Illegal transition: {current_stage} -> {next_stage}"
+            )
 
         return next_stage
+
+    # =========================
+    # AUDIT SNAPSHOT (PHASE D READY)
+    # =========================
+
+    def snapshot(self) -> Dict[str, Any]:
+        graph = self.guard.snapshot()
+        return {
+            "resolver": "GraphResolver",
+            "version": "v1.2",
+            "authority": "routing_only",
+            "total_nodes": len(graph),
+            "total_edges": sum(len(v) for v in graph.values())
+        }

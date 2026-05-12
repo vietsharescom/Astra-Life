@@ -1,172 +1,108 @@
-from typing import Optional, List, Dict, Any
-import copy
-
-from core.pipeline_guard import PipelineGuard
+from typing import Any, Dict, List
+import time
 
 
 # =========================
-# EXCEPTIONS
+# ERRORS
 # =========================
 
 class StateMachineError(Exception):
     pass
 
 
-class InvalidStateTransitionError(StateMachineError):
-    pass
-
-
-class StateMachineNotInitializedError(StateMachineError):
+class InvalidCommitError(StateMachineError):
     pass
 
 
 # =========================
-# ASTRA v1.2 — STATE LEDGER + GRAPH INTELLIGENCE GATEWAY
+# ASTRA v1.2 — STATE MACHINE (LEDGER)
 # =========================
 
 class StateMachine:
     """
-    ASTRA v1.2 — EXECUTION LEDGER CORE
+    ASTRA v1.2 — STATE LEDGER
 
     ROLE:
-    - lifecycle tracking
-    - deterministic state ledger
-    - execution trace storage (graph intelligence layer)
-    - post-execution observation hook
+    - Track current stage
+    - Record transition history
+    - Record execution trace (replayable)
 
     DOES NOT:
-    - decide routing
-    - execute business logic
-    - interpret graph
+    - Decide routing
+    - Execute logic
     """
 
-    def __init__(self, guard: PipelineGuard):
-
-        self.guard = guard
-
-        # =========================
-        # CORE STATE
-        # =========================
-        self.current_stage: Optional[str] = None
-
-        # =========================
-        # HISTORY (STATE CHAIN)
-        # =========================
-        self.history: List[str] = []
-
-        # =========================
-        # GRAPH INTELLIGENCE LEDGER
-        # =========================
-        self.execution_context: List[Dict[str, Any]] = []
-
-        # last execution snapshot
-        self.last_payload: Any = None
-        self.last_result: Any = None
-
-        self.initialized: bool = False
+    def __init__(self):
+        self._initialized = False
+        self._current_stage: str | None = None
+        self._history: List[str] = []
+        self._trace: List[Dict[str, Any]] = []
 
     # =========================
-    # INITIALIZE PIPELINE
+    # INIT
     # =========================
 
-    def initialize(self) -> str:
+    def initialize(self, entry_stage: str = "L0_INPUT") -> str:
+        if self._initialized:
+            raise InvalidCommitError("StateMachine already initialized")
 
-        stage = self.guard.initialize()
-
-        self.current_stage = stage
-        self.history = [stage]
-        self.initialized = True
-
-        return stage
-
-    # =========================
-    # STATE TRANSITION (COMMIT ONLY)
-    # =========================
-
-    def transition(
-        self,
-        next_stage: str,
-        context: Optional[Dict[str, Any]] = None
-    ) -> str:
-
-        if not self.initialized:
-            raise StateMachineNotInitializedError(
-                "StateMachine not initialized."
-            )
-
-        # =========================
-        # GRAPH VALIDATION (AUTHORITY = GUARD)
-        # =========================
-        self.guard.validate_transition(
-            current_stage=self.current_stage,
-            to_stage=next_stage,
-            context=context or {}
-        )
-
-        # =========================
-        # COMMIT STATE
-        # =========================
-        self.current_stage = next_stage
-        self.history.append(next_stage)
-
-        return self.current_stage
+        self._initialized = True
+        self._current_stage = entry_stage
+        self._history.append(entry_stage)
+        return entry_stage
 
     # =========================
-    # GRAPH INTELLIGENCE HOOK
+    # COMMIT TRANSITION
+    # =========================
+
+    def commit(self, next_stage: str) -> str:
+        if not self._initialized:
+            raise InvalidCommitError("StateMachine not initialized")
+
+        self._current_stage = next_stage
+        self._history.append(next_stage)
+        return next_stage
+
+    # =========================
+    # OBSERVE EXECUTION (LEDGER RECORD)
     # =========================
 
     def observe_execution(
         self,
         stage: str,
-        payload: Any,
-        result: Any
+        input_data: Any,
+        output_data: Any,
+        ok: bool
     ) -> None:
 
-        """
-        ASTRA v1.2 KEY LAYER:
-        - converts runtime execution into graph memory
-        - enables replay + audit + deterministic reconstruction
-        """
-
-        self.last_payload = copy.deepcopy(payload)
-        self.last_result = copy.deepcopy(result)
-
-        self.execution_context.append({
+        record = {
+            "index": len(self._trace),
+            "timestamp": time.time(),
             "stage": stage,
-            "input": copy.deepcopy(payload),
-            "output": copy.deepcopy(result)
-        })
-
-    # =========================
-    # SNAPSHOT (REPLAY READY)
-    # =========================
-
-    def snapshot(self) -> Dict[str, Any]:
-
-        return {
-            "current_stage": self.current_stage,
-            "history": copy.deepcopy(self.history),
-            "initialized": self.initialized,
-
-            # GRAPH INTELLIGENCE LAYER
-            "execution_context": copy.deepcopy(self.execution_context),
-
-            "last_payload": copy.deepcopy(self.last_payload),
-            "last_result": copy.deepcopy(self.last_result)
+            "input": input_data,
+            "output": output_data,
+            "ok": ok
         }
 
+        self._trace.append(record)
+
     # =========================
-    # QUERY API
+    # READ-ONLY QUERIES
     # =========================
 
-    def get_current_stage(self) -> Optional[str]:
-        return self.current_stage
+    def get_current_stage(self) -> str | None:
+        return self._current_stage
 
     def get_history(self) -> List[str]:
-        return copy.deepcopy(self.history)
+        return list(self._history)
 
     def get_execution_trace(self) -> List[Dict[str, Any]]:
-        return copy.deepcopy(self.execution_context)
+        return list(self._trace)
 
-    def is_initialized(self) -> bool:
-        return self.initialized
+    def snapshot(self) -> Dict[str, Any]:
+        return {
+            "initialized": self._initialized,
+            "current_stage": self._current_stage,
+            "history": list(self._history),
+            "trace_size": len(self._trace),
+        }
