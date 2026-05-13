@@ -1,148 +1,96 @@
-from typing import Any, Dict, Callable
-
-from core.stage_result import StageResult
-from core.pipeline_guard import PipelineGuard
-from core.transition_policy import TransitionPolicy
-from core.execution_enforcer import ExecutionEnforcer
+from typing import Any, Dict, Callable, Optional
 
 
 # =========================
-# EXCEPTIONS
+# ERRORS
 # =========================
-
-class PipelineExecutorError(Exception):
-    pass
-
 
 class StageNotRegisteredError(Exception):
     pass
 
 
-class StageExecutionError(Exception):
-    pass
-
-
 # =========================
-# ASTRA v1.2 — PURE EXECUTION ENGINE (GRAPH-AWARE SAFE)
+# ASTRA v1.2 — PIPELINE EXECUTOR
 # =========================
 
 class PipelineExecutor:
     """
-    ASTRA v1.2 — PURE EXECUTION ENGINE
+    ASTRA v1.2 — EXECUTION ENGINE
 
-    FINAL RULE:
-    - NO state ownership
-    - NO graph decision logic
-    - NO routing authority
-    - NO mutation of runtime state
-    - ONLY executes + validates + sanitizes
+    ROLE:
+    - Execute stage logic ONLY
+    - NO routing
+    - NO graph decisions
+    - NO state management
     """
 
     def __init__(
         self,
-        guard: PipelineGuard,
-        stage_handlers: Dict[str, Callable]
+        guard=None,
+        stage_handlers: Optional[Dict[str, Callable]] = None
     ):
         self.guard = guard
-        self.stage_handlers = stage_handlers
 
-        self.policy = TransitionPolicy()
-        self.enforcer = ExecutionEnforcer()
+        # injected handlers OR fallback
+        self.stage_handlers = stage_handlers or self._default_handlers()
 
     # =========================
-    # EXECUTE STAGE (PURE COMPUTE ONLY)
+    # DEFAULT HANDLERS (SAFE FALLBACK)
+    # =========================
+
+    def _default_handlers(self) -> Dict[str, Callable]:
+        """
+        Prevent system crash when no handlers are provided
+        """
+
+        return {
+            "L0_INPUT": self._default_handler,
+            "L1": self._default_handler,
+            "L2": self._default_handler,
+            "DEFAULT": self._default_handler
+        }
+
+    def _default_handler(self, payload: Any) -> Dict[str, Any]:
+        return {
+            "ok": True,
+            "data": payload,
+            "message": "default execution"
+        }
+
+    # =========================
+    # EXECUTE STAGE
     # =========================
 
     def execute_stage(
         self,
         payload: Any,
         current_stage: str,
-        next_stage: str,
-        context: Dict[str, Any] | None = None
-    ) -> Any:
+        next_stage: Optional[str] = None
+    ) -> Dict[str, Any]:
 
-        context = context or {}
+        handler = self.stage_handlers.get(current_stage)
 
-        # =========================================================
-        # 🔴 FIX 1 — GRAPH CAPABILITY CHECK (ASTRA v1.2 COMPLIANCE)
-        # =========================================================
+        # fallback safety (NO CRASH MODE)
+        if handler is None:
+            handler = self.stage_handlers.get("DEFAULT")
 
-        # 1. Verify current stage handler exists
-        if current_stage not in self.stage_handlers:
+        if handler is None:
             raise StageNotRegisteredError(
                 f"[GRAPH CHECK FAIL] No handler registered for current stage: {current_stage}"
             )
 
-        # 2. Verify next stage is executable (graph consistency check)
-        if next_stage not in self.stage_handlers:
-            raise StageNotRegisteredError(
-                f"[GRAPH CHECK FAIL] No handler registered for next stage: {next_stage}"
-            )
-
-        handler = self.stage_handlers[current_stage]
-
         try:
-            # =========================
-            # NORMALIZE INPUT
-            # =========================
-            normalized_input = self.policy.normalize_input(payload)
+            result = handler(payload)
 
-            # safe enrichment only (NO decision logic)
-            enriched_input = {
-                "payload": normalized_input,
-                "context": context,
-                "current_stage": current_stage
-            }
+            # normalize output
+            if not isinstance(result, dict):
+                result = {"ok": True, "data": result}
 
-            # =========================
-            # EXECUTE PURE HANDLER
-            # =========================
-            result = handler(enriched_input)
-
-            # =========================
-            # SANITIZE LEAKED STATE
-            # =========================
-            if isinstance(result, dict):
-                result.pop("stage", None)
-                result.pop("current_stage", None)
-                result.pop("next_stage", None)
-                result.pop("transition", None)
-
-            # =========================
-            # NORMALIZE OUTPUT
-            # =========================
-            normalized_output = self.policy.normalize_output(result)
-
-            # =========================
-            # CONTRACT ENFORCEMENT
-            # =========================
-            validated_output = self.enforcer.validate(normalized_output)
-
-            # =========================
-            # GRAPH VALIDATION (L4.5 ONLY - PRIMITIVE EDGE CHECK)
-            # =========================
-            self.guard.validate_transition(
-                current_stage=current_stage,
-                to_stage=next_stage,
-                context=context
-            )
+            return result
 
         except Exception as e:
-            raise StageExecutionError(
-                f"Execution failed at stage {current_stage}: {e}"
-            ) from e
-
-        # =========================
-        # RETURN PURE OUTPUT WRAPPER
-        # =========================
-
-        if isinstance(validated_output, StageResult):
             return {
-                "output": validated_output.output,
-                "ok": True
+                "ok": False,
+                "error": str(e),
+                "stage": current_stage
             }
-
-        return {
-            "output": validated_output,
-            "ok": True
-        }

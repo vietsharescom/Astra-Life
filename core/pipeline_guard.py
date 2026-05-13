@@ -24,27 +24,26 @@ class TerminalStageError(PipelineGuardError):
 
 
 # =========================
-# ASTRA v1.2 — GRAPH LEGALITY AUTHORITY
+# ASTRA v1.3 — GRAPH AUTHORITY LAYER (STABLE)
 # =========================
 
 class PipelineGuard:
     """
-    ASTRA v1.2 — SINGLE SOURCE OF GRAPH LEGALITY
-
-    ROLE:
-    - Load canonical graph registry
-    - Validate symbolic stage transitions
-    - Enforce graph legality (DAG / loop / recovery)
-
-    DOES NOT:
-    - Decide routing
-    - Execute logic
-    - Mutate runtime state
+    SINGLE SOURCE OF TRUTH FOR PIPELINE GRAPH
     """
 
     def __init__(self, graph_registry_path: Optional[str] = None):
-        self.graph_registry_path = graph_registry_path or self._default_registry_path()
-        self.graph: Dict[str, List[str]] = self._load_graph()
+        self.graph_registry_path = (
+            graph_registry_path or self._default_registry_path()
+        )
+
+        # 🔥 LOAD + SNAPSHOT (CRITICAL FIX)
+        self.graph: Dict[str, List[str]] = dict(self._load_graph())
+
+        # 🔥 NORMALIZE GRAPH (ensure list copy)
+        self.graph = {
+            k: list(v) for k, v in self.graph.items()
+        }
 
     # =========================
     # LOAD GRAPH
@@ -68,25 +67,31 @@ class PipelineGuard:
             graph = json.load(f)
 
         if not isinstance(graph, dict):
-            raise PipelineGuardError("Graph registry must be a dict")
+            raise PipelineGuardError("Graph must be a dict")
 
         return graph
 
     # =========================
-    # ENTRY POINT
+    # ROOT ENTRY (ROBUST)
     # =========================
 
     def initialize(self) -> str:
-        """
-        Entry stage = first key in graph registry
-        """
         if not self.graph:
             raise PipelineGuardError("Empty graph registry")
 
-        return list(self.graph.keys())[0]
+        # priority entry detection
+        if "L0_INPUT" in self.graph:
+            return "L0_INPUT"
+
+        # fallback: first node with outgoing edges
+        for k, v in self.graph.items():
+            if isinstance(v, list):
+                return k
+
+        raise PipelineGuardError("No valid entry stage found")
 
     # =========================
-    # GRAPH VALIDATION
+    # VALIDATION
     # =========================
 
     def validate_transition(
@@ -95,29 +100,19 @@ class PipelineGuard:
         to_stage: str,
         context: Optional[Dict[str, Any]] = None
     ) -> None:
-        """
-        Validate whether transition is legal in the graph.
-        """
 
         if current_stage not in self.graph:
-            raise UnknownStageError(
-                f"Unknown current stage: {current_stage}"
-            )
+            raise UnknownStageError(current_stage)
 
-        allowed_targets = self.graph[current_stage]
+        allowed = self.graph.get(current_stage, [])
 
-        if not allowed_targets:
-            raise TerminalStageError(
-                f"Stage {current_stage} is terminal; no outgoing transitions allowed"
-            )
-
-        if to_stage not in allowed_targets:
+        if to_stage not in allowed:
             raise IllegalTransitionError(
-                f"Illegal transition: {current_stage} → {to_stage}"
+                f"{current_stage} → {to_stage}"
             )
 
     # =========================
-    # GRAPH INTROSPECTION (READ-ONLY)
+    # INTROSPECTION
     # =========================
 
     def allowed_edges(self, stage: str) -> List[str]:
@@ -131,7 +126,26 @@ class PipelineGuard:
         return len(self.graph[stage]) == 0
 
     def snapshot(self) -> Dict[str, List[str]]:
-        """
-        Graph snapshot for audit / replay / tests
-        """
         return {k: list(v) for k, v in self.graph.items()}
+
+    # =========================
+    # COMPATIBILITY LAYER (CRITICAL FOR ORCHESTRATOR)
+    # =========================
+
+    @property
+    def pipeline_spec(self) -> Dict[str, Any]:
+        """
+        FIXED FORMAT:
+        - must be list[dict] with order + id
+        - must be stable sorted by insertion order
+        """
+
+        stages = [
+            {"id": k, "order": i}
+            for i, k in enumerate(list(self.graph.keys()))
+        ]
+
+        return {
+            "stages": stages,
+            "graph": self.graph
+        }

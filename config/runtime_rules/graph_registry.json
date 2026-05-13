@@ -3,35 +3,28 @@
         "L1_SEMANTIC"
     ],
     "L1_SEMANTIC": [
-        "L2_ENFORCER",
-        "L8_RECOVERY"
+        "L2_ENFORCER"
     ],
     "L2_ENFORCER": [
-        "L3_ROUTING",
-        "L8_RECOVERY"
+        "L3_ROUTING"
     ],
     "L3_ROUTING": [
         "L4_DECISION_AUTHORITY"
     ],
     "L4_DECISION_AUTHORITY": [
-        "L5_POLICY_ENGINE",
-        "L8_RECOVERY"
+        "L5_POLICY_ENGINE"
     ],
     "L5_POLICY_ENGINE": [
-        "L6_AGENT",
-        "L8_RECOVERY"
+        "L6_AGENT"
     ],
     "L6_AGENT": [
-        "L7_MEMORY_TOOL",
-        "L9_RESPONSE",
-        "L8_RECOVERY"
+        "L7_MEMORY_TOOL"
     ],
     "L7_MEMORY_TOOL": [
         "L9_RESPONSE"
     ],
     "L8_RECOVERY": [
-        "L3_ROUTING",
-        "L9_RESPONSE"
+        "L1_SEMANTIC"
     ],
     "L9_RESPONSE": [
         "L10_OBSERVABILITY"

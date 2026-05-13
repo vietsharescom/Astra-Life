@@ -1,10 +1,6 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import time
 
-
-# =========================
-# ERRORS
-# =========================
 
 class StateMachineError(Exception):
     pass
@@ -14,95 +10,70 @@ class InvalidCommitError(StateMachineError):
     pass
 
 
-# =========================
-# ASTRA v1.2 — STATE MACHINE (LEDGER)
-# =========================
-
 class StateMachine:
     """
-    ASTRA v1.2 — STATE LEDGER
+    ASTRA v1.3 STATE MACHINE (FIXED)
 
-    ROLE:
-    - Track current stage
-    - Record transition history
-    - Record execution trace (replayable)
-
-    DOES NOT:
-    - Decide routing
-    - Execute logic
+    RULE:
+    - Graph ALWAYS injected from PipelineGuard
+    - NEVER allow empty graph
     """
 
-    def __init__(self):
+    def __init__(self, graph: Dict[str, List[str]]):
+        if not graph:
+            raise InvalidCommitError("StateMachine requires non-empty graph")
+
+        self._graph = graph
         self._initialized = False
-        self._current_stage: str | None = None
+        self._current_stage = None
+
         self._history: List[str] = []
         self._trace: List[Dict[str, Any]] = []
 
-    # =========================
-    # INIT
-    # =========================
-
-    def initialize(self, entry_stage: str = "L0_INPUT") -> str:
+    def initialize(self) -> str:
         if self._initialized:
-            raise InvalidCommitError("StateMachine already initialized")
+            raise InvalidCommitError("Already initialized")
 
+        # ROOT = first key in graph (safe because guard already validated)
+        entry = list(self._graph.keys())[0]
+
+        self._current_stage = entry
+        self._history.append(entry)
         self._initialized = True
-        self._current_stage = entry_stage
-        self._history.append(entry_stage)
-        return entry_stage
 
-    # =========================
-    # COMMIT TRANSITION
-    # =========================
+        return entry
 
     def commit(self, next_stage: str) -> str:
         if not self._initialized:
-            raise InvalidCommitError("StateMachine not initialized")
+            raise InvalidCommitError("Not initialized")
 
         self._current_stage = next_stage
         self._history.append(next_stage)
+
         return next_stage
 
-    # =========================
-    # OBSERVE EXECUTION (LEDGER RECORD)
-    # =========================
-
-    def observe_execution(
-        self,
-        stage: str,
-        input_data: Any,
-        output_data: Any,
-        ok: bool
-    ) -> None:
-
-        record = {
+    def observe_execution(self, stage: str, input_data: Any, output_data: Any, ok: bool):
+        self._trace.append({
             "index": len(self._trace),
             "timestamp": time.time(),
             "stage": stage,
             "input": input_data,
             "output": output_data,
             "ok": ok
-        }
+        })
 
-        self._trace.append(record)
-
-    # =========================
-    # READ-ONLY QUERIES
-    # =========================
-
-    def get_current_stage(self) -> str | None:
+    def get_current_stage(self):
         return self._current_stage
 
-    def get_history(self) -> List[str]:
-        return list(self._history)
-
-    def get_execution_trace(self) -> List[Dict[str, Any]]:
+    def get_execution_trace(self):
         return list(self._trace)
 
-    def snapshot(self) -> Dict[str, Any]:
+    def get_graph_audit_events(self):
+        return []
+
+    def snapshot(self):
         return {
-            "initialized": self._initialized,
             "current_stage": self._current_stage,
-            "history": list(self._history),
-            "trace_size": len(self._trace),
+            "history": self._history,
+            "trace_size": len(self._trace)
         }

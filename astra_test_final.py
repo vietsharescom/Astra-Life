@@ -1,28 +1,32 @@
-python -c "
 from core.pipeline_guard import PipelineGuard
-from core.state_machine import StateMachine
 from core.pipeline_executor import PipelineExecutor
 from core.orchestrator import Orchestrator
 
-guard = PipelineGuard('config/runtime_rules/stage_order.json')
-sm = StateMachine(guard)
 
-executor = PipelineExecutor(
-    guard=guard,
-    stage_handlers={
-        'L0_INPUT': lambda x: {'ok': True, 'stage': 'L0_INPUT'},
-        'L1_SEMANTIC': lambda x: {'ok': True, 'stage': 'L1_SEMANTIC'}
-    }
-)
+def main():
 
-orch = Orchestrator(guard, executor, sm)
+    # =========================
+    # BOOTSTRAP CORE
+    # =========================
+    guard = PipelineGuard()
+    executor = PipelineExecutor()
 
-print('INIT:', orch.initialize())
+    # ❌ KHÔNG TẠO StateMachine THỦ CÔNG NỮA
 
-sm.transition('L1_SEMANTIC')
+    orch = Orchestrator(
+        guard=guard,
+        executor=executor
+    )
 
-result = orch.run_stage({'x': 1}, next_stage='L1_SEMANTIC')
+    # =========================
+    # RUN TEST
+    # =========================
+    result = orch.run({
+        "input": "test"
+    })
 
-print('RESULT:', result)
-print('SNAPSHOT:', orch.snapshot())
-"
+    print("RESULT:", result)
+
+
+if __name__ == "__main__":
+    main()
